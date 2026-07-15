@@ -44,6 +44,41 @@ export function recentVsEarlier(clockThrows, recentDays = 30) {
   }
 }
 
+// --- Round the Clock personal bests. A player "completes" an attempt when
+// matchState.finished[playerId] is true — that's tracked per player, so it
+// still counts even if a match was ended early (via "End session") before
+// every player in it had finished, or before the other player(s) had.
+// matches: rows from db.matches (mode, id, finishedAt, matchState).
+// throwsRows: rows from db.throws (matchId, playerId, hit).
+
+export function clockAttemptsForPlayer(matches, throwsRows, playerId) {
+  return matches
+    .filter((m) => m.mode === 'clock' && m.matchState?.finished?.[playerId])
+    .map((m) => {
+      const rows = throwsRows.filter((t) => t.matchId === m.id && t.playerId === playerId)
+      const darts = rows.length
+      const hits = rows.filter((t) => t.hit).length
+      const hitRate = darts > 0 ? hits / darts : null
+      return { matchId: m.id, finishedAt: m.finishedAt, darts, hits, hitRate }
+    })
+    .sort((a, b) => (a.finishedAt || 0) - (b.finishedAt || 0))
+}
+
+// bestDarts: fewest darts taken to clear the whole clock (the classic
+// Round the Clock personal best). bestHitRate: highest accuracy across a
+// completed attempt, shown alongside it since it's a different thing to
+// be proud of (fewer darts vs fewer misses along the way).
+export function personalBestClock(matches, throwsRows, playerId) {
+  const attempts = clockAttemptsForPlayer(matches, throwsRows, playerId)
+  if (attempts.length === 0) return null
+  const bestDarts = attempts.reduce((best, a) => (best === null || a.darts < best ? a.darts : best), null)
+  const bestHitRate = attempts.reduce(
+    (best, a) => (a.hitRate !== null && (best === null || a.hitRate > best) ? a.hitRate : best),
+    null,
+  )
+  return { attemptsCompleted: attempts.length, bestDarts, bestHitRate }
+}
+
 // --- 501/301 stats, built from turn-based visit history (db.throws rows
 // where mode is '501' or '301', written by the new TurnScoreEntry flow).
 // Each row is expected to have: playerId, scoredPoints, dartsUsed.

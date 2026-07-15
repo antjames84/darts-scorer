@@ -159,7 +159,7 @@ export default function Players() {
     <div className="page">
       <div className="topbar">
         <Link className="back-link" to="/">←</Link>
-        <h1>Players</h1>
+        <h1>Settings</h1>
       </div>
 
       <form className="btn-row" onSubmit={addPlayer}>

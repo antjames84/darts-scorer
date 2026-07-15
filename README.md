@@ -44,8 +44,12 @@ match.
 
 **Round the Clock**: starts on 1, tap Hit or Miss for each dart. A hit
 advances you to the next number; a miss just logs against the current
-number. Finishing 20 requires a double — hitting plain or treble 20 keeps
-you on 20 until you land the double.
+number. After 20, the final target is the bull — any hit there (either
+ring) finishes the round, there's no double requirement. Play tracks a
+running hit tally as you go, shows the last few throws of the current turn
+so you can confirm a tap actually registered, and you can end a session
+early at any time — whatever's been thrown so far is already saved,
+nothing is lost by stopping partway through.
 
 ## How the weakest-number stats work
 

@@ -21,6 +21,7 @@ export default function NewClock() {
       format: null,
       matchState,
       status: 'active',
+      committed: false,
       createdAt: Date.now(),
       finishedAt: null,
     })
@@ -35,8 +36,8 @@ export default function NewClock() {
       </div>
 
       <p style={{ color: 'var(--muted)', margin: 0 }}>
-        Start on 1, work round to 20, finish on a double. Any player order can play
-        solo for practice or take turns to race each other.
+        Start on 1, work round to 20, then finish on the bull. Any player order can
+        play solo for practice or take turns to race each other.
       </p>
 
       <label className="field">

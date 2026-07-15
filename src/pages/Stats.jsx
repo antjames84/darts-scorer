@@ -10,10 +10,21 @@ export default function Stats() {
 
   const activeId = playerId ?? players?.[0]?.id
 
-  const clockThrows = useLiveQuery(
+  const clockThrowsRaw = useLiveQuery(
     () => (activeId ? db.throws.where({ mode: 'clock', playerId: activeId }).toArray() : []),
     [activeId],
   )
+  const committedClockMatchIds = useLiveQuery(
+    () =>
+      db.matches
+        .toArray()
+        .then((rows) => new Set(rows.filter((m) => m.mode === 'clock' && m.committed).map((m) => m.id))),
+    [],
+  )
+  const clockThrows =
+    clockThrowsRaw && committedClockMatchIds
+      ? clockThrowsRaw.filter((t) => committedClockMatchIds.has(t.matchId))
+      : null
 
   if (!players) return <div className="page">Loading…</div>
 
@@ -50,7 +61,8 @@ export default function Stats() {
       </label>
 
       <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
-        Built from Round the Clock sessions, where each dart has a clear target.
+        Built from Round the Clock sessions you've saved to stats — a session only
+        counts here once you tap "Save to stats" on its finish screen.
         501/301 scoring doesn't map to a single number, so it isn't counted here.
       </p>
 

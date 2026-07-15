@@ -1,5 +1,6 @@
-// Round the Clock engine. Target starts at 1 and advances to 20 on a hit.
-// Finishing 20 requires a double, matching common home-play rules.
+// Round the Clock engine. Target starts at 1, advances through the
+// numbers on a hit, then finishes on the bull (target 25 — either ring
+// counts, this isn't a double-out game like 501/301).
 
 export function createClockMatchState(playerIds) {
   const targets = {}
@@ -15,9 +16,8 @@ export function createClockMatchState(playerIds) {
   }
 }
 
-// outcome: 'hit' | 'miss'  (for target 20, a plain/treble hit on 20 that
-// is NOT a double counts as a miss for advancement purposes — you still
-// need the double to clear it)
+// outcome: 'hit' | 'miss'. Targets run 1-20, then 25 (bull) to finish.
+// Any hit on the bull clears it — no double requirement.
 export function applyClockThrow(state, outcome) {
   const playerId = state.playerIds[state.currentPlayerIndex]
   const target = state.targets[playerId]
@@ -27,8 +27,10 @@ export function applyClockThrow(state, outcome) {
   const nextFinished = { ...state.finished }
 
   if (hit) {
-    if (target >= 20) {
+    if (target === 25) {
       nextFinished[playerId] = true
+    } else if (target === 20) {
+      nextTargets[playerId] = 25
     } else {
       nextTargets[playerId] = target + 1
     }
@@ -69,4 +71,10 @@ export function applyClockThrow(state, outcome) {
 
 export function allFinished(state) {
   return state.playerIds.every((id) => state.finished[id])
+}
+
+// Display label for a target — everywhere else in the app "25" is a
+// segment number, but on this screen the player should see "Bull".
+export function targetLabel(target) {
+  return target === 25 ? 'Bull' : String(target)
 }
