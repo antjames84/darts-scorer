@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, exportAllData, importAllData } from '../db.js'
-import { threeDartAverage, headToHead } from '../game/stats.js'
+import { threeDartAverage, headToHead, computeNumberStats, weakestNumbers, personalBestClock } from '../game/stats.js'
 
 export default function Players() {
   const players = useLiveQuery(() => db.players.orderBy('name').toArray(), [])
@@ -97,6 +97,94 @@ export default function Players() {
     const stamp = new Date().toISOString().slice(0, 10)
     a.href = url
     a.download = `darts-throws-${stamp}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function shareApp() {
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}`
+    const shareData = {
+      title: 'Home Darts Scorer',
+      text: 'Score darts with me — 501/301 and Round the Clock.',
+      url,
+    }
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData)
+      } catch {
+        // Cancelled the share sheet — nothing to do.
+      }
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(url)
+      alert('Link copied — paste it wherever you like.')
+    } else {
+      window.prompt('Copy this link:', url)
+    }
+  }
+
+  // The readable counterpart to "Export throws" — this mirrors what the
+  // Stats page actually shows (per-number accuracy, which ones are your
+  // current weakest, and your Round the Clock personal best) rather than
+  // a raw event-by-event log. One file, two sections: personal bests
+  // first, then per-number accuracy, each with their own header row.
+  async function doStatsSummaryExport() {
+    const [playersList, throwsRows, matchesRows] = await Promise.all([
+      db.players.toArray(),
+      db.throws.toArray(),
+      db.matches.toArray(),
+    ])
+
+    const committedClockMatches = matchesRows.filter((m) => m.mode === 'clock' && m.committed)
+    const committedClockMatchIds = new Set(committedClockMatches.map((m) => m.id))
+
+    const lines = []
+
+    lines.push('Personal bests (Round the Clock, saved sessions only)')
+    lines.push(['player', 'completedAttempts', 'bestDarts', 'bestHitRatePercent'].map(csvEscape).join(','))
+    playersList.forEach((p) => {
+      const pb = personalBestClock(committedClockMatches, throwsRows, p.id)
+      if (pb) {
+        lines.push(
+          [
+            p.name,
+            pb.attemptsCompleted,
+            pb.bestDarts,
+            pb.bestHitRate != null ? Math.round(pb.bestHitRate * 100) : '',
+          ].map(csvEscape).join(','),
+        )
+      }
+    })
+
+    lines.push('')
+    lines.push('Per-number accuracy (Round the Clock, saved sessions only)')
+    lines.push(['player', 'number', 'attempts', 'hits', 'hitRatePercent', 'amongWeakest5'].map(csvEscape).join(','))
+    playersList.forEach((p) => {
+      const playerThrows = throwsRows.filter(
+        (t) => t.mode === 'clock' && t.playerId === p.id && committedClockMatchIds.has(t.matchId),
+      )
+      const stats = computeNumberStats(playerThrows)
+      const weakest = new Set(weakestNumbers(stats, 3, 5).map((s) => s.target))
+      stats.forEach((s) => {
+        lines.push(
+          [
+            p.name,
+            s.target === 25 ? 'Bull' : s.target,
+            s.attempts,
+            s.hits,
+            s.rate != null ? Math.round(s.rate * 100) : '',
+            weakest.has(s.target) ? 'yes' : '',
+          ].map(csvEscape).join(','),
+        )
+      })
+    })
+
+    const csv = lines.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    const stamp = new Date().toISOString().slice(0, 10)
+    a.href = url
+    a.download = `darts-stats-summary-${stamp}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -241,17 +329,61 @@ export default function Players() {
       )}
 
       <div className="card stack">
+        <strong>About your data</strong>
+        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
+          Everything — players, matches, every dart — lives only in this browser,
+          on this device. If the app is deleted from your home screen, or you clear
+          this site's data in Safari, all of it goes too, there's no separate copy
+          anywhere else.
+        </p>
+        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
+          Removing a player below only deletes their name from this list. Matches
+          and throws they're part of stay in history and stats exactly as they
+          were, they'll just show up unlabelled rather than disappearing.
+        </p>
+        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
+          This device and any other device (like your son's phone) each keep their
+          own separate copy — nothing syncs automatically. Export backup below to
+          move a snapshot of your data across, but note Import replaces everything
+          on the receiving device rather than merging with what's already there.
+        </p>
+      </div>
+
+      <div className="card stack">
+        <strong>Share this app</strong>
+        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
+          Sends the app's link, not your data — whoever opens it starts with a
+          blank slate on their own device.
+        </p>
+        <button className="btn btn-outline" onClick={shareApp}>Share app link</button>
+      </div>
+
+      <div className="card stack">
         <strong>Backup</strong>
         <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
           Everything is stored only on this device. Export a backup now and again,
-          or before switching phones, so your stats history isn't lost.
+          or before switching phones, so your stats history isn't lost. This is
+          the one to use if you need to undo an accidental deletion — Import
+          restores everything exactly as it was when you exported it.
         </p>
         <button className="btn btn-outline" onClick={doExport}>Export backup (.json)</button>
-        <button className="btn btn-outline" onClick={doCsvExport}>Export throws (.csv)</button>
         <label className="btn btn-outline" style={{ textAlign: 'center' }}>
           {busy ? 'Importing…' : 'Import backup (.json)'}
           <input type="file" accept="application/json" onChange={doImport} style={{ display: 'none' }} disabled={busy} />
         </label>
+      </div>
+
+      <div className="card stack">
+        <strong>Export for reading, not restoring</strong>
+        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
+          These two are for opening in a spreadsheet, not for importing back in —
+          use the JSON backup above for that. Stats summary mirrors what the Stats
+          page shows, personal bests and per-number accuracy. Throws is the full
+          raw log, every dart, which grows fast and is more for digging into a
+          specific session than everyday reading.
+        </p>
+        <button className="btn btn-outline" onClick={doStatsSummaryExport}>Export stats summary (.csv)</button>
+        <button className="btn btn-outline" onClick={doCsvExport}>Export throws (.csv)</button>
       </div>
 
       <div className="card stack">

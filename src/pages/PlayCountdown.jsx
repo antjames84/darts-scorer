@@ -6,6 +6,7 @@ import { applyTurnScore, createLeg, legsToWin } from '../game/countdown.js'
 import TurnScoreEntry from '../components/TurnScoreEntry.jsx'
 import Scoreboard from '../components/Scoreboard.jsx'
 import Celebration from '../components/Celebration.jsx'
+import { useWakeLock } from '../hooks/useWakeLock.js'
 
 function buzz(pattern) {
   // No-op wherever the Vibration API isn't supported — notably iOS Safari,
@@ -18,6 +19,7 @@ export default function PlayCountdown() {
   const id = Number(matchId)
   const [toast, setToast] = useState(null)
   const [celebration, setCelebration] = useState(null)
+  useWakeLock(true)
 
   const match = useLiveQuery(() => db.matches.get(id), [id])
   const legs = useLiveQuery(() => db.legs.where('matchId').equals(id).sortBy('legNumber'), [id])

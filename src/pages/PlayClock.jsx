@@ -10,6 +10,7 @@ import {
 } from '../game/stats.js'
 import Scoreboard from '../components/Scoreboard.jsx'
 import Celebration from '../components/Celebration.jsx'
+import { useWakeLock } from '../hooks/useWakeLock.js'
 
 function buzz(pattern) {
   // No-op wherever the Vibration API isn't supported — notably iOS Safari,
@@ -22,6 +23,7 @@ export default function PlayClock() {
   const id = Number(matchId)
   const [celebration, setCelebration] = useState(null)
   const navigate = useNavigate()
+  useWakeLock(true)
 
   const match = useLiveQuery(() => db.matches.get(id), [id])
   const players = useLiveQuery(
@@ -287,6 +289,9 @@ export default function PlayClock() {
       <div className="score-display">
         <div className="value">{targetLabel(currentTarget)}</div>
         <div className="label">{players.find((p) => p.id === currentPlayerId)?.name} aiming for {targetLabel(currentTarget)}</div>
+        {currentTarget === 25 && match.bullMode === 'strict' && (
+          <div className="label" style={{ color: 'var(--muted)' }}>Only the inner bull clears it this game</div>
+        )}
         {tally.attempts > 0 && (
           <div className="label" style={{ marginTop: 4 }}>
             {tally.hits}/{tally.attempts} · {tally.pct}%
@@ -318,10 +323,18 @@ export default function PlayClock() {
         })}
       </div>
 
-      <div className="btn-row">
-        <button className="btn btn-good" onClick={() => record('hit')}>Hit</button>
-        <button className="btn btn-primary" onClick={() => record('miss')}>Miss</button>
-      </div>
+      {currentTarget === 25 && match.bullMode === 'strict' ? (
+        <div className="btn-row">
+          <button className="btn btn-outline" onClick={() => record('miss')}>25 (outer)</button>
+          <button className="btn btn-good" onClick={() => record('hit')}>Bull (50)</button>
+          <button className="btn btn-primary" onClick={() => record('miss')}>Miss</button>
+        </div>
+      ) : (
+        <div className="btn-row">
+          <button className="btn btn-good" onClick={() => record('hit')}>Hit</button>
+          <button className="btn btn-primary" onClick={() => record('miss')}>Miss</button>
+        </div>
+      )}
 
       <button className="btn btn-outline" onClick={undo}>Undo last dart</button>
       <button className="btn btn-outline" onClick={endSessionEarly}>End session</button>

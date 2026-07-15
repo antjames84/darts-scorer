@@ -7,6 +7,7 @@ import { createClockMatchState } from '../game/clock.js'
 export default function NewClock() {
   const players = useLiveQuery(() => db.players.orderBy('name').toArray(), [])
   const [selected, setSelected] = useState([])
+  const [bullMode, setBullMode] = useState('any')
   const navigate = useNavigate()
 
   function toggle(id) {
@@ -20,6 +21,7 @@ export default function NewClock() {
       mode: 'clock',
       format: null,
       matchState,
+      bullMode,
       status: 'active',
       committed: false,
       createdAt: Date.now(),
@@ -39,6 +41,19 @@ export default function NewClock() {
         Start on 1, work round to 20, then finish on the bull. Any player order can
         play solo for practice or take turns to race each other.
       </p>
+
+      <label className="field">
+        Finish on
+        <div className="segmented">
+          <button className={bullMode === 'any' ? 'active' : ''} onClick={() => setBullMode('any')}>Any bull (25 or 50)</button>
+          <button className={bullMode === 'strict' ? 'active' : ''} onClick={() => setBullMode('strict')}>Bull only (50)</button>
+        </div>
+        <span style={{ color: 'var(--muted)', fontSize: 13 }}>
+          {bullMode === 'any'
+            ? 'Easier while you\'re learning — landing anywhere on the bull clears it.'
+            : 'Proper rules — only the inner bull clears it, the outer 25 ring doesn\'t count.'}
+        </span>
+      </label>
 
       <label className="field">
         Players (tap to select, in throwing order)
