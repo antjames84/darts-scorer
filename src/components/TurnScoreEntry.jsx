@@ -138,7 +138,7 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
 
           <div className="btn-row" style={{ gap: 8 }}>
             <button
-              onClick={() => throwDart(25, multiplier === 3 ? 1 : multiplier)}
+              onClick={() => throwDart(25, 1)}
               disabled={disabled}
               style={{
                 flex: 1,
@@ -152,7 +152,24 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
                 opacity: disabled ? 0.5 : 1,
               }}
             >
-              {multiplier === 2 ? 'D-Bull' : 'Bull'}
+              25
+            </button>
+            <button
+              onClick={() => throwDart(25, 2)}
+              disabled={disabled}
+              style={{
+                flex: 1,
+                minHeight: 48,
+                borderRadius: 10,
+                fontSize: 16,
+                fontWeight: 700,
+                background: 'var(--card, #1c2530)',
+                color: 'inherit',
+                border: 'none',
+                opacity: disabled ? 0.5 : 1,
+              }}
+            >
+              Bull
             </button>
             <button
               onClick={() => throwDart(0, 0)}

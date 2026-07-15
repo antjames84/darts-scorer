@@ -252,7 +252,15 @@ export default function PlayClock() {
 
   const tally = tallyFor(currentPlayerId)
   const currentPlayerThrows = throwsForMatch.filter((t) => t.playerId === currentPlayerId)
-  const thisTurnThrows = state.turnDartsThrown === 0 ? [] : currentPlayerThrows.slice(-state.turnDartsThrown)
+  // How many darts belong to the player's current (or just-completed) turn.
+  // state.turnDartsThrown resets to 0 the instant a 3rd dart rotates play
+  // to the next turn, in the same update that recorded that dart — there's
+  // no render in between where it'd show 3. Deriving this from the throw
+  // history itself instead means the 3rd box stays visible right up until
+  // the next dart is actually thrown, rather than flashing straight to 0.
+  const turnBoxCount =
+    currentPlayerThrows.length === 0 ? 0 : currentPlayerThrows.length % 3 === 0 ? 3 : currentPlayerThrows.length % 3
+  const thisTurnThrows = turnBoxCount === 0 ? [] : currentPlayerThrows.slice(-turnBoxCount)
 
   return (
     <div className="page">

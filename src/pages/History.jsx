@@ -10,6 +10,15 @@ export default function History() {
   const matches = useLiveQuery(() => db.matches.orderBy('createdAt').reverse().toArray(), [])
   const players = useLiveQuery(() => db.players.toArray(), [])
 
+  async function deleteMatch(id) {
+    if (!window.confirm('Delete this match? This can\'t be undone.')) return
+    await db.transaction('rw', db.matches, db.legs, db.throws, async () => {
+      await db.legs.where('matchId').equals(id).delete()
+      await db.throws.where('matchId').equals(id).delete()
+      await db.matches.delete(id)
+    })
+  }
+
   if (!matches || !players) return <div className="page">Loading…</div>
 
   return (
@@ -25,7 +34,7 @@ export default function History() {
         {matches.map((m) => {
           const ids = m.mode === 'clock' ? m.matchState?.playerIds : []
           return (
-            <Link key={m.id} to={`/history/${m.id}`} className="card" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div key={m.id} className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <strong>{m.mode === 'clock' ? 'Round the Clock' : `${m.mode} · ${m.format}`}</strong>
                 <span className="badge">{m.status}</span>
@@ -34,7 +43,20 @@ export default function History() {
                 {new Date(m.createdAt).toLocaleString()}
                 {m.mode === 'clock' && ids?.length ? ` · ${playerNames(players, ids)}` : ''}
               </div>
-            </Link>
+              <div className="btn-row" style={{ marginTop: 10 }}>
+                {m.status === 'active' ? (
+                  <Link
+                    className="btn btn-primary btn-sm"
+                    to={`/play/${m.mode === 'clock' ? 'clock' : 'countdown'}/${m.id}`}
+                  >
+                    Resume
+                  </Link>
+                ) : (
+                  <Link className="btn btn-outline btn-sm" to={`/history/${m.id}`}>View</Link>
+                )}
+                <button className="btn btn-outline btn-sm" onClick={() => deleteMatch(m.id)}>Delete</button>
+              </div>
+            </div>
           )
         })}
       </div>
