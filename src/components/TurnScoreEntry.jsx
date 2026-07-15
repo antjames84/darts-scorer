@@ -76,8 +76,8 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
           <button key={n} onClick={() => press(String(n))} disabled={disabled}>{n}</button>
         ))}
-        <button onClick={clear} disabled={disabled}>C</button>
         <button onClick={() => press('0')} disabled={disabled}>0</button>
+        <button onClick={clear} disabled={disabled}>C</button>
         <button onClick={backspace} disabled={disabled}>⌫</button>
       </div>
       <button className="btn btn-primary" onClick={submit} disabled={disabled || value === ''}>

@@ -45,6 +45,79 @@ export default function Players() {
     URL.revokeObjectURL(url)
   }
 
+  function csvEscape(value) {
+    const s = value === null || value === undefined ? '' : String(value)
+    if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"'
+    return s
+  }
+
+  // One row per throw/visit across both game modes, with player names
+  // resolved so you can open this in Excel/Numbers/Sheets and look at
+  // it directly rather than parsing the JSON backup. Fields that don't
+  // apply to a given mode (e.g. "target" for a 501 visit) are left blank.
+  async function doCsvExport() {
+    const [playersList, throwsRows] = await Promise.all([
+      db.players.toArray(),
+      db.throws.toArray(),
+    ])
+
+    const playerName = {}
+    playersList.forEach((p) => { playerName[p.id] = p.name })
+
+    const headers = [
+      'date', 'mode', 'matchId', 'legId', 'player',
+      'attemptedScore', 'scoredPoints', 'dartsUsed', 'isCheckout',
+      'target', 'hit', 'segment', 'multiplier', 'value',
+    ]
+
+    const rows = throwsRows
+      .slice()
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((t) => [
+        new Date(t.createdAt).toISOString(),
+        t.mode ?? '',
+        t.matchId ?? '',
+        t.legId ?? '',
+        playerName[t.playerId] || t.playerId,
+        t.attemptedScore ?? '',
+        t.scoredPoints ?? '',
+        t.dartsUsed ?? '',
+        t.isCheckout ?? '',
+        t.target ?? '',
+        t.hit ?? '',
+        t.segment ?? '',
+        t.multiplier ?? '',
+        t.value ?? '',
+      ])
+
+    const csv = [headers, ...rows].map((r) => r.map(csvEscape).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    const stamp = new Date().toISOString().slice(0, 10)
+    a.href = url
+    a.download = `darts-throws-${stamp}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // Wipes every table on this device. Deliberately requires typing a exact
+  // word rather than a single OK/Cancel confirm, since there's no undo —
+  // this isn't the same as removing one player, it clears everything.
+  async function resetAllData() {
+    const typed = window.prompt(
+      'This permanently deletes every player, match, and stat on this device. There is no undo. Type RESET to confirm.',
+    )
+    if (typed !== 'RESET') return
+    await db.transaction('rw', db.players, db.matches, db.legs, db.throws, async () => {
+      await db.throws.clear()
+      await db.legs.clear()
+      await db.matches.clear()
+      await db.players.clear()
+    })
+    alert('All data cleared.')
+  }
+
   async function doImport(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -174,10 +247,20 @@ export default function Players() {
           or before switching phones, so your stats history isn't lost.
         </p>
         <button className="btn btn-outline" onClick={doExport}>Export backup (.json)</button>
+        <button className="btn btn-outline" onClick={doCsvExport}>Export throws (.csv)</button>
         <label className="btn btn-outline" style={{ textAlign: 'center' }}>
           {busy ? 'Importing…' : 'Import backup (.json)'}
           <input type="file" accept="application/json" onChange={doImport} style={{ display: 'none' }} disabled={busy} />
         </label>
+      </div>
+
+      <div className="card stack">
+        <strong>Reset</strong>
+        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
+          Deletes every player, match, and stat on this device. There's no undo,
+          export a backup first if there's anything worth keeping.
+        </p>
+        <button className="btn btn-outline" onClick={resetAllData}>Reset all data</button>
       </div>
     </div>
   )
