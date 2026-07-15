@@ -7,6 +7,7 @@ import {
   computeNumberStats,
   weakestNumbers,
   personalBestClock,
+  computeStreaks,
 } from '../game/stats.js'
 import Scoreboard from '../components/Scoreboard.jsx'
 import Celebration from '../components/Celebration.jsx'
@@ -169,7 +170,7 @@ export default function PlayClock() {
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>Saved to stats.</p>
         )}
 
-        {!endedEarly && match.winnerPlayerId && (
+        {!endedEarly && match.winnerPlayerId && state.playerIds.length > 1 && (
           <div className="card" style={{ textAlign: 'center' }}>
             <div className="score-display">
               <div className="value" style={{ fontSize: 28 }}>
@@ -205,13 +206,14 @@ export default function PlayClock() {
 
           const sessionStats = computeNumberStats(sessionThrows)
           const sessionWeakest = weakestNumbers(sessionStats, 1, 3)
-          const allTimeStats = allThrows
-            ? computeNumberStats(
-                allThrows.filter(
-                  (t) => t.mode === 'clock' && t.playerId === p.id && committedClockMatchIds.has(t.matchId),
-                ),
+          const sessionStreaks = computeStreaks(sessionThrows)
+          const allTimeThrowsForPlayer = allThrows
+            ? allThrows.filter(
+                (t) => t.mode === 'clock' && t.playerId === p.id && committedClockMatchIds.has(t.matchId),
               )
             : []
+          const allTimeStats = computeNumberStats(allTimeThrowsForPlayer)
+          const allTimeStreaks = computeStreaks(allTimeThrowsForPlayer)
           const allTimeByNumber = {}
           allTimeStats.forEach((s) => { allTimeByNumber[s.target] = s })
 
@@ -226,6 +228,15 @@ export default function PlayClock() {
               )}
 
               {pbLine && <span style={{ fontSize: 13 }}>{pbLine}</span>}
+
+              {darts > 0 && (
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  Longest streak: {sessionStreaks.longestHit} hit{sessionStreaks.longestHit !== 1 ? 's' : ''} in a row
+                  {allTimeStreaks.longestHit > sessionStreaks.longestHit ? ` (all-time best: ${allTimeStreaks.longestHit})` : ''}
+                  {' · '}
+                  {sessionStreaks.longestMiss} miss{sessionStreaks.longestMiss !== 1 ? 'es' : ''} in a row
+                </span>
+              )}
 
               {sessionWeakest.length > 0 && (
                 <div className="stack" style={{ marginTop: 6 }}>
@@ -268,6 +279,7 @@ export default function PlayClock() {
   const turnBoxCount =
     currentPlayerThrows.length === 0 ? 0 : currentPlayerThrows.length % 3 === 0 ? 3 : currentPlayerThrows.length % 3
   const thisTurnThrows = turnBoxCount === 0 ? [] : currentPlayerThrows.slice(-turnBoxCount)
+  const liveStreak = computeStreaks(currentPlayerThrows)
 
   return (
     <div className="page">
@@ -287,7 +299,7 @@ export default function PlayClock() {
       />
 
       <div className="score-display">
-        <div className="value">{targetLabel(currentTarget)}</div>
+        <div className="value" style={{ fontSize: 96, lineHeight: 1 }}>{targetLabel(currentTarget)}</div>
         <div className="label">{players.find((p) => p.id === currentPlayerId)?.name} aiming for {targetLabel(currentTarget)}</div>
         {currentTarget === 25 && match.bullMode === 'strict' && (
           <div className="label" style={{ color: 'var(--muted)' }}>Only the inner bull clears it this game</div>
@@ -295,6 +307,11 @@ export default function PlayClock() {
         {tally.attempts > 0 && (
           <div className="label" style={{ marginTop: 4 }}>
             {tally.hits}/{tally.attempts} · {tally.pct}%
+          </div>
+        )}
+        {liveStreak.trailingHit >= 2 && (
+          <div style={{ marginTop: 6, fontSize: 18, fontWeight: 700, color: 'var(--accent, #e6533c)' }}>
+            🔥 {liveStreak.trailingHit} in a row
           </div>
         )}
       </div>
@@ -324,20 +341,47 @@ export default function PlayClock() {
       </div>
 
       {currentTarget === 25 && match.bullMode === 'strict' ? (
-        <div className="btn-row">
-          <button className="btn btn-outline" onClick={() => record('miss')}>25 (outer)</button>
-          <button className="btn btn-good" onClick={() => record('hit')}>Bull (50)</button>
-          <button className="btn btn-primary" onClick={() => record('miss')}>Miss</button>
+        <div className="btn-row" style={{ gap: 10 }}>
+          <button
+            onClick={() => record('miss')}
+            style={{ flex: 1, minHeight: 100, borderRadius: 14, fontSize: 18, fontWeight: 700, background: 'var(--card, #1c2530)', color: 'inherit', border: 'none' }}
+          >
+            25 (outer)
+          </button>
+          <button
+            onClick={() => record('hit')}
+            style={{ flex: 1, minHeight: 100, borderRadius: 14, fontSize: 18, fontWeight: 700, background: '#2e7d32', color: '#fff', border: 'none' }}
+          >
+            Bull (50)
+          </button>
+          <button
+            onClick={() => record('miss')}
+            style={{ flex: 1, minHeight: 100, borderRadius: 14, fontSize: 18, fontWeight: 700, background: '#c0392b', color: '#fff', border: 'none' }}
+          >
+            Miss
+          </button>
         </div>
       ) : (
-        <div className="btn-row">
-          <button className="btn btn-good" onClick={() => record('hit')}>Hit</button>
-          <button className="btn btn-primary" onClick={() => record('miss')}>Miss</button>
+        <div className="btn-row" style={{ gap: 10 }}>
+          <button
+            onClick={() => record('hit')}
+            style={{ flex: 1, minHeight: 150, borderRadius: 16, fontSize: 26, fontWeight: 800, background: '#2e7d32', color: '#fff', border: 'none' }}
+          >
+            Hit
+          </button>
+          <button
+            onClick={() => record('miss')}
+            style={{ flex: 1, minHeight: 150, borderRadius: 16, fontSize: 26, fontWeight: 800, background: '#c0392b', color: '#fff', border: 'none' }}
+          >
+            Miss
+          </button>
         </div>
       )}
 
-      <button className="btn btn-outline" onClick={undo}>Undo last dart</button>
-      <button className="btn btn-outline" onClick={endSessionEarly}>End session</button>
+      <div className="btn-row" style={{ gap: 8, marginTop: 4 }}>
+        <button className="btn btn-outline btn-sm" onClick={undo}>Undo last dart</button>
+        <button className="btn btn-outline btn-sm" onClick={endSessionEarly}>End session</button>
+      </div>
 
       {celebration && <Celebration message={celebration} onDone={() => setCelebration(null)} />}
     </div>

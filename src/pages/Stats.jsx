@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db.js'
-import { computeNumberStats, weakestNumbers } from '../game/stats.js'
+import { computeNumberStats, weakestNumbers, strongestNumbers, computeStreaks } from '../game/stats.js'
 import { targetLabel } from '../game/clock.js'
 import DartboardHeatmap from '../components/DartboardHeatmap.jsx'
 
@@ -25,7 +25,7 @@ export default function Stats() {
   )
   const clockThrows =
     clockThrowsRaw && committedClockMatchIds
-      ? clockThrowsRaw.filter((t) => committedClockMatchIds.has(t.matchId))
+      ? clockThrowsRaw.filter((t) => committedClockMatchIds.has(t.matchId)).sort((a, b) => a.id - b.id)
       : null
 
   if (!players) return <div className="page">Loading…</div>
@@ -44,6 +44,8 @@ export default function Stats() {
 
   const stats = clockThrows ? computeNumberStats(clockThrows) : []
   const weakest = weakestNumbers(stats, 3, 5)
+  const strongest = strongestNumbers(stats, 3, 5)
+  const streaks = clockThrows ? computeStreaks(clockThrows) : { longestHit: 0, longestMiss: 0 }
   const totalAttempts = stats.reduce((sum, s) => sum + s.attempts, 0)
 
   return (
@@ -74,6 +76,32 @@ export default function Stats() {
         <>
           <div className="card">
             <DartboardHeatmap stats={stats} />
+          </div>
+
+          {(strongest.length > 0 || weakest.length > 0) && (
+            <p style={{ fontSize: 14, margin: 0 }}>
+              {strongest.length > 0 && (
+                <>Best: <strong>{targetLabel(strongest[0].target)}</strong> ({strongest[0].hits}/{strongest[0].attempts}, {Math.round(strongest[0].rate * 100)}%)</>
+              )}
+              {strongest.length > 0 && weakest.length > 0 && '  ·  '}
+              {weakest.length > 0 && (
+                <>Worst: <strong>{targetLabel(weakest[0].target)}</strong> ({weakest[0].hits}/{weakest[0].attempts}, {Math.round(weakest[0].rate * 100)}%)</>
+              )}
+            </p>
+          )}
+
+          <div className="card">
+            <strong>Streaks</strong>
+            <div className="stack" style={{ marginTop: 10 }}>
+              <div className="stat-row">
+                <span>Longest hit streak</span>
+                <span className="pct">{streaks.longestHit} in a row</span>
+              </div>
+              <div className="stat-row">
+                <span>Longest miss streak</span>
+                <span className="pct">{streaks.longestMiss} in a row</span>
+              </div>
+            </div>
           </div>
 
           <div className="card">

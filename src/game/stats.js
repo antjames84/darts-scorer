@@ -32,6 +32,40 @@ export function weakestNumbers(stats, minAttempts = 3, limit = 5) {
     .slice(0, limit)
 }
 
+export function strongestNumbers(stats, minAttempts = 3, limit = 5) {
+  return stats
+    .filter((s) => s.attempts >= minAttempts)
+    .slice()
+    .sort((a, b) => b.rate - a.rate)
+    .slice(0, limit)
+}
+
+// Longest run of hits and misses in a sequence of throws, plus the
+// streak currently in progress at the end of it — that last one is what
+// a live "3 in a row" indicator during play is built from. Throws must
+// already be in the order they were actually thrown (oldest first) and
+// already filtered to one player, mixing players would produce nonsense.
+export function computeStreaks(throwsInOrder) {
+  let longestHit = 0
+  let longestMiss = 0
+  let currentHit = 0
+  let currentMiss = 0
+
+  throwsInOrder.forEach((t) => {
+    if (t.hit) {
+      currentHit += 1
+      currentMiss = 0
+      if (currentHit > longestHit) longestHit = currentHit
+    } else {
+      currentMiss += 1
+      currentHit = 0
+      if (currentMiss > longestMiss) longestMiss = currentMiss
+    }
+  })
+
+  return { longestHit, longestMiss, trailingHit: currentHit, trailingMiss: currentMiss }
+}
+
 // Splits throws into two buckets (recent vs earlier) so a number's trend
 // over time can be shown: is it improving or getting worse.
 export function recentVsEarlier(clockThrows, recentDays = 30) {
