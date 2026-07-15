@@ -43,3 +43,47 @@ export function recentVsEarlier(clockThrows, recentDays = 30) {
     earlier: computeNumberStats(earlier),
   }
 }
+
+// --- 501/301 stats, built from turn-based visit history (db.throws rows
+// where mode is '501' or '301', written by the new TurnScoreEntry flow).
+// Each row is expected to have: playerId, scoredPoints, dartsUsed.
+
+// Three-dart average: total points actually scored divided by total darts
+// thrown, scaled to a 3-dart visit, the same definition used in televised
+// darts. Bust visits contribute 0 scored points but their darts still
+// count towards the denominator, since they were still thrown.
+export function threeDartAverage(countdownTurns) {
+  let totalScored = 0
+  let totalDarts = 0
+  countdownTurns.forEach((t) => {
+    totalScored += t.scoredPoints || 0
+    totalDarts += t.dartsUsed || 0
+  })
+  if (totalDarts === 0) return null
+  return (totalScored / totalDarts) * 3
+}
+
+// Head-to-head record between two players across finished 501/301 matches.
+// matches: rows from db.matches (status/winnerPlayerId).
+// firstLegsByMatchId: { [matchId]: legRow } — the legNumber===1 leg for
+//   each match, since that's where the two participants' playerIds live.
+export function headToHead(matches, firstLegsByMatchId, playerAId, playerBId) {
+  let played = 0
+  let aWins = 0
+  let bWins = 0
+
+  matches.forEach((m) => {
+    if (m.status !== 'finished') return
+    const firstLeg = firstLegsByMatchId[m.id]
+    if (!firstLeg) return
+    const ids = firstLeg.legState.playerIds
+    if (ids.length !== 2) return // head-to-head only means something 1v1
+    if (!ids.includes(playerAId) || !ids.includes(playerBId)) return
+
+    played += 1
+    if (m.winnerPlayerId === playerAId) aWins += 1
+    else if (m.winnerPlayerId === playerBId) bWins += 1
+  })
+
+  return { played, aWins, bWins }
+}

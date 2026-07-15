@@ -2,16 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db.js'
-import { applyDart, createLeg, legsToWin } from '../game/countdown.js'
-import NumberPad from '../components/NumberPad.jsx'
+import { applyTurnScore, createLeg, legsToWin } from '../game/countdown.js'
+import TurnScoreEntry from '../components/TurnScoreEntry.jsx'
 import Scoreboard from '../components/Scoreboard.jsx'
-
-function dartLabel(t) {
-  if (t.segment === 0) return 'Miss'
-  if (t.segment === 25) return t.multiplier === 2 ? 'D-Bull' : 'Bull'
-  const prefix = t.multiplier === 3 ? 'T' : t.multiplier === 2 ? 'D' : ''
-  return `${prefix}${t.segment}`
-}
 
 export default function PlayCountdown() {
   const { matchId } = useParams()
@@ -23,6 +16,12 @@ export default function PlayCountdown() {
   const activeLeg = legs?.find((l) => l.status === 'active')
   const playerIds = activeLeg?.legState.playerIds || legs?.[0]?.legState.playerIds || []
   const players = useLiveQuery(() => (playerIds.length ? db.players.bulkGet(playerIds) : []), [JSON.stringify(playerIds)])
+
+  const turns = useLiveQuery(
+    () => (activeLeg ? db.throws.where('legId').equals(activeLeg.id).sortBy('id') : []),
+    [activeLeg?.id],
+  )
+  const lastTurn = turns && turns.length ? turns[turns.length - 1] : null
 
   useEffect(() => {
     if (!toast) return
@@ -37,9 +36,9 @@ export default function PlayCountdown() {
     if (l.winnerPlayerId) legWins[l.winnerPlayerId] = (legWins[l.winnerPlayerId] || 0) + 1
   })
 
-  async function handleThrow(segment, multiplier) {
+  async function handleTurn(score, { dartsUsed, checkoutDouble }) {
     if (!activeLeg || match.status === 'finished') return
-    const result = applyDart(activeLeg.legState, segment, multiplier)
+    const result = applyTurnScore(activeLeg.legState, score, { dartsUsed, checkoutDouble })
 
     await db.transaction('rw', db.legs, db.throws, db.matches, async () => {
       await db.throws.add({
@@ -47,11 +46,10 @@ export default function PlayCountdown() {
         legId: activeLeg.id,
         playerId: result.playerId,
         mode: match.mode,
-        target: null,
-        hit: null,
-        segment,
-        multiplier,
-        value: result.value,
+        attemptedScore: score,
+        scoredPoints: result.event === 'bust' ? 0 : score,
+        dartsUsed,
+        isCheckout: result.event === 'checkout',
         createdAt: Date.now(),
       })
 
@@ -96,20 +94,23 @@ export default function PlayCountdown() {
       }
     })
 
-    if (result.event === 'bust') setToast({ text: 'Bust!', kind: 'bust' })
+    if (result.event === 'bust') setToast({ text: 'Bust! Visit discarded.', kind: 'bust' })
     else if (result.event === 'checkout') setToast({ text: 'Checkout! Leg won.', kind: 'checkout' })
   }
 
   async function undo() {
     if (!activeLeg) return
-    const throwsForLeg = (await db.throws.where('legId').equals(activeLeg.id).toArray()).sort((a, b) => a.id - b.id)
-    if (throwsForLeg.length === 0) return
-    const last = throwsForLeg[throwsForLeg.length - 1]
-    const rest = throwsForLeg.slice(0, -1)
+    const turnsForLeg = (await db.throws.where('legId').equals(activeLeg.id).toArray()).sort((a, b) => a.id - b.id)
+    if (turnsForLeg.length === 0) return
+    const last = turnsForLeg[turnsForLeg.length - 1]
+    const rest = turnsForLeg.slice(0, -1)
 
     let legState = createLeg(activeLeg.legState.playerIds, activeLeg.legState.startScore, activeLeg.startingPlayerIndex ?? 0)
     rest.forEach((t) => {
-      legState = applyDart(legState, t.segment, t.multiplier).leg
+      legState = applyTurnScore(legState, t.attemptedScore, {
+        dartsUsed: t.dartsUsed,
+        checkoutDouble: t.isCheckout,
+      }).leg
     })
 
     await db.transaction('rw', db.legs, db.throws, async () => {
@@ -166,15 +167,17 @@ export default function PlayCountdown() {
         <div className="label">{players.find((p) => p.id === currentPlayerId)?.name}'s turn · leg {activeLeg.legNumber}</div>
       </div>
 
-      <div className="turn-darts">
-        {[0, 1, 2].map((i) => (
-          <div className="dart" key={i}>{leg.turnDarts[i] ? dartLabel(leg.turnDarts[i]) : ''}</div>
-        ))}
-      </div>
+      {lastTurn && (
+        <div className="label" style={{ textAlign: 'center', color: 'var(--muted)' }}>
+          Last visit: {lastTurn.scoredPoints}{lastTurn.scoredPoints !== lastTurn.attemptedScore ? ' (bust)' : ''}
+        </div>
+      )}
 
-      <NumberPad onThrow={handleThrow} />
+      <TurnScoreEntry remaining={leg.scores[currentPlayerId]} onSubmitTurn={handleTurn} />
 
-      <button className="btn btn-outline" onClick={undo}>Undo last dart</button>
+      <button className="btn btn-outline" onClick={undo} disabled={!turns || turns.length === 0}>
+        Undo last visit
+      </button>
 
       {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
     </div>
