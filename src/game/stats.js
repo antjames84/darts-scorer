@@ -3,7 +3,7 @@
 // doesn't map cleanly onto a single aimed-for number, so it isn't
 // included here — see README.
 
-export const NUMBERS = [...Array.from({ length: 20 }, (_, i) => i + 1)]
+export const NUMBERS = [...Array.from({ length: 20 }, (_, i) => i + 1), 25]
 
 export function computeNumberStats(clockThrows) {
   // clockThrows: [{ target, hit, createdAt, playerId }]

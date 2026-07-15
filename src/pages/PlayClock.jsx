@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db.js'
@@ -9,11 +9,18 @@ import {
   personalBestClock,
 } from '../game/stats.js'
 import Scoreboard from '../components/Scoreboard.jsx'
+import Celebration from '../components/Celebration.jsx'
+
+function buzz(pattern) {
+  // No-op wherever the Vibration API isn't supported — notably iOS Safari,
+  // which has never implemented it, PWA or not. Harmless either way.
+  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern)
+}
 
 export default function PlayClock() {
   const { matchId } = useParams()
   const id = Number(matchId)
-  const [toast, setToast] = useState(null)
+  const [celebration, setCelebration] = useState(null)
   const navigate = useNavigate()
 
   const match = useLiveQuery(() => db.matches.get(id), [id])
@@ -37,12 +44,6 @@ export default function PlayClock() {
     [],
   )
   const allThrows = useLiveQuery(() => db.throws.toArray(), [])
-
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 1200)
-    return () => clearTimeout(t)
-  }, [toast])
 
   if (!match || !players || !throwsForMatch) return <div className="page">Loading…</div>
 
@@ -86,7 +87,11 @@ export default function PlayClock() {
       })
     })
 
-    if (result.justFinished) setToast({ text: `${players.find((p) => p.id === result.playerId)?.name} finished!`, kind: 'checkout' })
+    if (result.hit) buzz(result.justFinished ? [40, 60, 40, 60, 120] : 25)
+
+    if (result.justFinished) {
+      setCelebration(`${players.find((p) => p.id === result.playerId)?.name} finished!`)
+    }
   }
 
   async function undo() {
@@ -228,7 +233,7 @@ export default function PlayClock() {
                     const allTimePct = allTime && allTime.rate != null ? Math.round(allTime.rate * 100) : null
                     return (
                       <div className="stat-row" key={s.target}>
-                        <span className="num">{s.target}</span>
+                        <span className="num">{targetLabel(s.target)}</span>
                         <span className="pct">
                           {s.hits}/{s.attempts} ({Math.round(s.rate * 100)}%)
                           {allTimePct != null ? ` · all-time ${allTimePct}%` : ''}
@@ -321,7 +326,7 @@ export default function PlayClock() {
       <button className="btn btn-outline" onClick={undo}>Undo last dart</button>
       <button className="btn btn-outline" onClick={endSessionEarly}>End session</button>
 
-      {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
+      {celebration && <Celebration message={celebration} onDone={() => setCelebration(null)} />}
     </div>
   )
 }

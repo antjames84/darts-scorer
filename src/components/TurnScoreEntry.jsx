@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { dartValue } from '../game/countdown.js'
 
+function buzz(pattern) {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern)
+}
+
 // Per-dart visit entry for 501/301. Pick a multiplier, tap a segment, and
 // that dart's value (segment * multiplier, or 25/50 for bull) fills the
 // next of three boxes and adds to a running total. Only the total for
@@ -19,6 +23,7 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
   function throwDart(segment, mult) {
     if (disabled || readyToSubmit || darts.length >= 3) return
     const value = dartValue(segment, mult)
+    buzz(15)
 
     const nextDarts = [...darts, value]
     const nextTotal = nextDarts.reduce((s, v) => s + v, 0)

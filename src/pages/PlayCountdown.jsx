@@ -5,11 +5,19 @@ import { db } from '../db.js'
 import { applyTurnScore, createLeg, legsToWin } from '../game/countdown.js'
 import TurnScoreEntry from '../components/TurnScoreEntry.jsx'
 import Scoreboard from '../components/Scoreboard.jsx'
+import Celebration from '../components/Celebration.jsx'
+
+function buzz(pattern) {
+  // No-op wherever the Vibration API isn't supported — notably iOS Safari,
+  // which has never implemented it, PWA or not. Harmless either way.
+  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern)
+}
 
 export default function PlayCountdown() {
   const { matchId } = useParams()
   const id = Number(matchId)
   const [toast, setToast] = useState(null)
+  const [celebration, setCelebration] = useState(null)
 
   const match = useLiveQuery(() => db.matches.get(id), [id])
   const legs = useLiveQuery(() => db.legs.where('matchId').equals(id).sortBy('legNumber'), [id])
@@ -94,8 +102,15 @@ export default function PlayCountdown() {
       }
     })
 
-    if (result.event === 'bust') setToast({ text: 'Bust! Visit discarded.', kind: 'bust' })
-    else if (result.event === 'checkout') setToast({ text: 'Checkout! Leg won.', kind: 'checkout' })
+    if (result.event === 'bust') {
+      buzz(15)
+      setToast({ text: 'Bust! Visit discarded.', kind: 'bust' })
+    } else if (result.event === 'checkout') {
+      buzz([40, 60, 40, 60, 120])
+      setCelebration('Checkout! Leg won.')
+    } else {
+      buzz(15)
+    }
   }
 
   async function undo() {
@@ -142,6 +157,7 @@ export default function PlayCountdown() {
           <Link className="btn btn-outline" to="/">Home</Link>
           <Link className="btn btn-primary" to="/stats">Stats</Link>
         </div>
+        {celebration && <Celebration message={celebration} onDone={() => setCelebration(null)} />}
       </div>
     )
   }
@@ -180,6 +196,7 @@ export default function PlayCountdown() {
       </button>
 
       {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
+      {celebration && <Celebration message={celebration} onDone={() => setCelebration(null)} />}
     </div>
   )
 }

@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db.js'
 import { computeNumberStats, weakestNumbers } from '../game/stats.js'
+import { targetLabel } from '../game/clock.js'
+import DartboardHeatmap from '../components/DartboardHeatmap.jsx'
 
 export default function Stats() {
   const players = useLiveQuery(() => db.players.orderBy('name').toArray(), [])
@@ -71,6 +73,10 @@ export default function Stats() {
       ) : (
         <>
           <div className="card">
+            <DartboardHeatmap stats={stats} />
+          </div>
+
+          <div className="card">
             <strong>Weakest numbers</strong>
             <div className="stack" style={{ marginTop: 10 }}>
               {weakest.length === 0 && (
@@ -80,7 +86,7 @@ export default function Stats() {
               )}
               {weakest.map((s) => (
                 <div className="stat-row" key={s.target}>
-                  <span className="num">{s.target}</span>
+                  <span className="num">{targetLabel(s.target)}</span>
                   <div className="bar-track">
                     <div className="bar-fill weak" style={{ width: `${Math.round(s.rate * 100)}%` }} />
                   </div>
@@ -95,7 +101,7 @@ export default function Stats() {
             <div className="stack" style={{ marginTop: 10 }}>
               {stats.map((s) => (
                 <div className="stat-row" key={s.target}>
-                  <span className="num">{s.target}</span>
+                  <span className="num">{targetLabel(s.target)}</span>
                   <div className="bar-track">
                     {s.attempts > 0 && (
                       <div className={`bar-fill ${s.rate < 0.5 ? 'weak' : ''}`} style={{ width: `${Math.round(s.rate * 100)}%` }} />
