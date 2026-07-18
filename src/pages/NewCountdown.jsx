@@ -9,6 +9,7 @@ export default function NewCountdown() {
   const [mode, setMode] = useState('501')
   const [format, setFormat] = useState('single')
   const [selected, setSelected] = useState([])
+  const [startingPlayerId, setStartingPlayerId] = useState(null)
   const navigate = useNavigate()
 
   function toggle(id) {
@@ -18,6 +19,8 @@ export default function NewCountdown() {
   async function start() {
     if (selected.length === 0) return
     const startScore = mode === '501' ? 501 : 301
+    const starter = startingPlayerId && selected.includes(startingPlayerId) ? startingPlayerId : selected[0]
+    const orderedIds = [starter, ...selected.filter((pid) => pid !== starter)]
     const matchId = await db.matches.add({
       mode,
       format,
@@ -25,7 +28,7 @@ export default function NewCountdown() {
       createdAt: Date.now(),
       finishedAt: null,
     })
-    const leg = createLeg(selected, startScore, 0)
+    const leg = createLeg(orderedIds, startScore, 0)
     await db.legs.add({
       matchId,
       legNumber: 1,
@@ -43,6 +46,7 @@ export default function NewCountdown() {
       <div className="topbar">
         <Link className="back-link" to="/">←</Link>
         <h1>New 501 / 301</h1>
+        <Link className="btn btn-outline btn-sm" to="/players">+ Player</Link>
       </div>
 
       <div className="stack">
@@ -65,7 +69,7 @@ export default function NewCountdown() {
         </label>
 
         <label className="field">
-          Players (tap to select, in throwing order)
+          Players (tap to select)
           <div className="player-list">
             {(players || []).map((p) => (
               <div
@@ -74,7 +78,7 @@ export default function NewCountdown() {
                 onClick={() => toggle(p.id)}
               >
                 <span>{p.name}</span>
-                {selected.includes(p.id) && <span className="badge">#{selected.indexOf(p.id) + 1}</span>}
+                {selected.includes(p.id) && <span className="badge">selected</span>}
               </div>
             ))}
           </div>
@@ -84,6 +88,23 @@ export default function NewCountdown() {
             </span>
           )}
         </label>
+
+        {selected.length >= 2 && (
+          <label className="field">
+            Who goes first?
+            <div className="segmented">
+              {selected.map((pid) => {
+                const p = players.find((pl) => pl.id === pid)
+                const isStarter = (startingPlayerId ?? selected[0]) === pid
+                return (
+                  <button key={pid} className={isStarter ? 'active' : ''} onClick={() => setStartingPlayerId(pid)}>
+                    {p?.name}
+                  </button>
+                )
+              })}
+            </div>
+          </label>
+        )}
       </div>
 
       <button className="btn btn-primary" disabled={selected.length === 0} onClick={start}>

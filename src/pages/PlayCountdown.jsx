@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db.js'
-import { applyTurnScore, createLeg, legsToWin } from '../game/countdown.js'
+import { applyTurnScore, createLeg, legsToWin, checkoutSuggestion } from '../game/countdown.js'
 import TurnScoreEntry from '../components/TurnScoreEntry.jsx'
 import Scoreboard from '../components/Scoreboard.jsx'
 import Celebration from '../components/Celebration.jsx'
@@ -172,6 +172,7 @@ export default function PlayCountdown() {
       <div className="topbar">
         <Link className="back-link" to="/">←</Link>
         <h1>{match.mode} · {match.format === 'single' ? 'Single leg' : match.format === 'bo3' ? `Bo3 (first to ${need})` : `Bo5 (first to ${need})`}</h1>
+        <Link className="btn btn-outline btn-sm" to="/players">+ Player</Link>
       </div>
 
       <Scoreboard
@@ -184,6 +185,16 @@ export default function PlayCountdown() {
         <div className="value">{leg.scores[currentPlayerId]}</div>
         <div className="label">{players.find((p) => p.id === currentPlayerId)?.name}'s turn · leg {activeLeg.legNumber}</div>
       </div>
+
+      {(() => {
+        const route = checkoutSuggestion(leg.scores[currentPlayerId])
+        return route ? (
+          <div className="card" style={{ textAlign: 'center', padding: 10 }}>
+            <span style={{ fontSize: 13, color: 'var(--muted)' }}>Checkout: </span>
+            <strong style={{ fontSize: 16 }}>{route.join('  →  ')}</strong>
+          </div>
+        ) : null
+      })()}
 
       {lastTurn && (
         <div className="label" style={{ textAlign: 'center', color: 'var(--muted)' }}>

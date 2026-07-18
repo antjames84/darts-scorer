@@ -96,9 +96,60 @@ export function applyDart(leg, segment, multiplier) {
   }
 }
 
-export function remainingAfterTurnSoFar(leg) {
-  const playerId = leg.playerIds[leg.currentPlayerIndex]
-  return leg.scores[playerId]
+// --- Checkout suggestions. Built by search rather than a hand-typed
+// reference table, so there's no risk of a transcription error in a
+// 170-row chart, and numbers with no valid finish (169, 168, 166, 165,
+// 163, 162, 159 — the "bogey" numbers) naturally fall out as null rather
+// than needing to be special-cased.
+
+const DART_VALUES = (() => {
+  const values = []
+  for (let n = 1; n <= 20; n++) {
+    values.push({ value: n, label: `${n}` })
+    values.push({ value: n * 2, label: `D${n}` })
+    values.push({ value: n * 3, label: `T${n}` })
+  }
+  values.push({ value: 25, label: '25' })
+  values.push({ value: 50, label: 'Bull' })
+  return values.sort((a, b) => b.value - a.value)
+})()
+
+const FINISH_DOUBLES = (() => {
+  const values = []
+  for (let n = 1; n <= 20; n++) values.push({ value: n * 2, label: `D${n}` })
+  values.push({ value: 50, label: 'Bull' })
+  return values.sort((a, b) => b.value - a.value)
+})()
+
+// Returns an array of dart labels (e.g. ['T20', 'T20', 'Bull']) for one
+// route to checkout from `remaining`, preferring fewer darts and, among
+// equal dart counts, bigger darts first — the conventional way these are
+// presented. Returns null if there's no valid finish (remaining is 1,
+// over 170, or one of the bogey numbers).
+export function checkoutSuggestion(remaining) {
+  if (remaining <= 1 || remaining > 170) return null
+
+  const oneDart = FINISH_DOUBLES.find((d) => d.value === remaining)
+  if (oneDart) return [oneDart.label]
+
+  for (const first of DART_VALUES) {
+    if (first.value >= remaining) continue
+    const rest = remaining - first.value
+    const finish = FINISH_DOUBLES.find((d) => d.value === rest)
+    if (finish) return [first.label, finish.label]
+  }
+
+  for (const first of DART_VALUES) {
+    if (first.value >= remaining) continue
+    for (const second of DART_VALUES) {
+      if (second.value >= remaining - first.value) continue
+      const rest = remaining - first.value - second.value
+      const finish = FINISH_DOUBLES.find((d) => d.value === rest)
+      if (finish) return [first.label, second.label, finish.label]
+    }
+  }
+
+  return null
 }
 
 // --- New turn-based engine. One number per visit instead of one tap per
