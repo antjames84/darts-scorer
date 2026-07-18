@@ -7,6 +7,7 @@ import TurnScoreEntry from '../components/TurnScoreEntry.jsx'
 import Scoreboard from '../components/Scoreboard.jsx'
 import Celebration from '../components/Celebration.jsx'
 import { useWakeLock } from '../hooks/useWakeLock.js'
+import { threeDartAverage } from '../game/stats.js'
 
 function buzz(pattern) {
   // No-op wherever the Vibration API isn't supported — notably iOS Safari,
@@ -33,6 +34,10 @@ export default function PlayCountdown() {
     [activeLeg?.id],
   )
   const lastTurn = turns && turns.length ? turns[turns.length - 1] : null
+
+  // Every turn across the whole match (all legs so far), used only for
+  // the running 3-dart average shown in each player's bar.
+  const matchTurns = useLiveQuery(() => db.throws.where('matchId').equals(id).toArray(), [id])
 
   useEffect(() => {
     if (!toast) return
@@ -188,6 +193,7 @@ export default function PlayCountdown() {
         <Link className="back-link" to="/">←</Link>
         <span style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>
           {match.mode} · {match.format === 'single' ? 'Single leg' : match.format === 'bo3' ? `Bo3 (first to ${need})` : `Bo5 (first to ${need})`}
+          {match.format !== 'single' ? ` · Leg ${activeLeg.legNumber}` : ''}
         </span>
         <button className="btn btn-outline btn-sm" onClick={cancelMatch}>Cancel</button>
       </div>
@@ -195,12 +201,15 @@ export default function PlayCountdown() {
       <Scoreboard
         players={players}
         activePlayerId={currentPlayerId}
-        statFor={(pid) => `${leg.scores[pid]}${legWins[pid] ? ` · ${legWins[pid]} leg${legWins[pid] > 1 ? 's' : ''}` : ''}`}
+        statFor={(pid) => {
+          const avg = threeDartAverage((matchTurns || []).filter((t) => t.playerId === pid))
+          const avgText = avg != null ? ` · avg ${avg.toFixed(1)}` : ''
+          return `${leg.scores[pid]}${legWins[pid] ? ` · ${legWins[pid]} leg${legWins[pid] > 1 ? 's' : ''}` : ''}${avgText}`
+        }}
       />
 
-      <div className="score-display">
+      <div className="score-display" style={{ padding: '4px 0' }}>
         <div className="value">{leg.scores[currentPlayerId]}</div>
-        <div className="label">{players.find((p) => p.id === currentPlayerId)?.name}'s turn · leg {activeLeg.legNumber}</div>
       </div>
 
       {(() => {

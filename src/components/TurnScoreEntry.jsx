@@ -19,7 +19,6 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
   const remainingAfter = remaining - total
   const bustCertain = remainingAfter < 0 || remainingAfter === 1
   const readyToSubmit = darts.length === 3 || bustCertain
-  const dartsLeftThisTurn = 3 - darts.length
 
   function throwDart(segment, mult) {
     if (disabled || readyToSubmit || darts.length >= 3) return
@@ -74,11 +73,11 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
   function modeBtnStyle(active) {
     return {
       flex: 1,
-      minHeight: 52,
+      minHeight: 46,
       borderRadius: 10,
       fontSize: 13,
       fontWeight: 700,
-      lineHeight: 1.3,
+      lineHeight: 1.25,
       background: active ? 'var(--accent, #e6533c)' : 'var(--card, #1c2530)',
       color: active ? '#fff' : 'inherit',
       border: 'none',
@@ -89,7 +88,7 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
 
   const bottomBtnStyle = {
     flex: 1,
-    minHeight: 52,
+    minHeight: 46,
     borderRadius: 10,
     fontSize: 15,
     fontWeight: 700,
@@ -124,11 +123,11 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
             <div
               key={i}
               style={{
-                minWidth: 64,
+                minWidth: 58,
                 textAlign: 'center',
-                padding: '10px 8px',
+                padding: '7px 6px',
                 borderRadius: 8,
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: 700,
                 background: filled !== undefined ? 'var(--card, #1c2530)' : 'transparent',
                 border: isActive ? '2px solid var(--accent, #e6533c)' : '1px dashed var(--muted)',
@@ -144,12 +143,6 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
       <div className="label" style={{ textAlign: 'center' }}>
         Total: {total}{bustCertain ? ' — bust' : ''}
       </div>
-
-      {!readyToSubmit && (
-        <div className="label" style={{ textAlign: 'center', color: 'var(--muted)' }}>
-          {dartsLeftThisTurn} dart{dartsLeftThisTurn !== 1 ? 's' : ''} left this turn
-        </div>
-      )}
 
       {!readyToSubmit && (
         <>
