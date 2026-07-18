@@ -66,6 +66,28 @@ export function computeStreaks(throwsInOrder) {
   return { longestHit, longestMiss, trailingHit: currentHit, trailingMiss: currentMiss }
 }
 
+// How many distinct targets were cleared on the very first dart thrown at
+// them, versus needing one or more retries first. A new target only ever
+// starts right after the previous one was hit (a miss keeps the target
+// the same), so "this throw's target differs from the last one" reliably
+// marks the first dart of a fresh target — no separate turn-boundary
+// tracking needed. Throws must be in actual chronological order.
+export function computeFirstTimeHits(throwsInOrder) {
+  let firstTimeHits = 0
+  let totalTargets = 0
+  let prevTarget = null
+
+  throwsInOrder.forEach((t) => {
+    if (t.target !== prevTarget) {
+      totalTargets += 1
+      if (t.hit) firstTimeHits += 1
+      prevTarget = t.target
+    }
+  })
+
+  return { firstTimeHits, totalTargets }
+}
+
 // Splits throws into two buckets (recent vs earlier) so a number's trend
 // over time can be shown: is it improving or getting worse.
 export function recentVsEarlier(clockThrows, recentDays = 30) {
