@@ -5,11 +5,11 @@ function buzz(pattern) {
   if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern)
 }
 
-// Per-dart visit entry for 501/301. Pick a multiplier, tap a segment, and
-// that dart's value (segment * multiplier, or 25/50 for bull) fills the
-// next of three boxes and adds to a running total. Only the total for
-// the whole visit is ever sent to the game engine via onSubmitTurn —
-// countdown.js and PlayCountdown.jsx don't need to change.
+// Per-dart visit entry for 501/301. Single/Double/Treble set the
+// multiplier and wait for a number tap; Bull and Outer fire immediately,
+// same as Miss, since none of those three need a follow-up number. Only
+// the total for the whole visit is ever sent to the game engine via
+// onSubmitTurn — countdown.js and PlayCountdown.jsx don't need to change.
 export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
   const [multiplier, setMultiplier] = useState(1)
   const [darts, setDarts] = useState([]) // values already entered this turn, max 3
@@ -37,7 +37,7 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
   }
 
   function removeLastDart() {
-    if (disabled) return
+    if (disabled || darts.length === 0) return
     setDarts((prev) => prev.slice(0, -1))
   }
 
@@ -71,7 +71,23 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
     reset()
   }
 
-  const specialBtnStyle = {
+  function modeBtnStyle(active) {
+    return {
+      flex: 1,
+      minHeight: 52,
+      borderRadius: 10,
+      fontSize: 13,
+      fontWeight: 700,
+      lineHeight: 1.3,
+      background: active ? 'var(--accent, #e6533c)' : 'var(--card, #1c2530)',
+      color: active ? '#fff' : 'inherit',
+      border: 'none',
+      padding: '4px 2px',
+      opacity: disabled ? 0.5 : 1,
+    }
+  }
+
+  const bottomBtnStyle = {
     flex: 1,
     minHeight: 52,
     borderRadius: 10,
@@ -137,16 +153,16 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
 
       {!readyToSubmit && (
         <>
-          <div className="segmented">
-            <button className={multiplier === 1 ? 'active' : ''} onClick={() => setMultiplier(1)} disabled={disabled}>Single</button>
-            <button className={multiplier === 2 ? 'active' : ''} onClick={() => setMultiplier(2)} disabled={disabled}>Double</button>
-            <button className={multiplier === 3 ? 'active' : ''} onClick={() => setMultiplier(3)} disabled={disabled}>Treble</button>
-          </div>
-
-          <div className="btn-row" style={{ gap: 8 }}>
-            <button onClick={() => throwDart(25, 1)} disabled={disabled} style={specialBtnStyle}>25</button>
-            <button onClick={() => throwDart(25, 2)} disabled={disabled} style={specialBtnStyle}>Bull (50)</button>
-            <button onClick={() => throwDart(0, 0)} disabled={disabled} style={specialBtnStyle}>Miss (0)</button>
+          <div className="btn-row" style={{ gap: 6 }}>
+            <button onClick={() => setMultiplier(1)} disabled={disabled} style={modeBtnStyle(multiplier === 1)}>Single</button>
+            <button onClick={() => setMultiplier(2)} disabled={disabled} style={modeBtnStyle(multiplier === 2)}>Double</button>
+            <button onClick={() => setMultiplier(3)} disabled={disabled} style={modeBtnStyle(multiplier === 3)}>Treble</button>
+            <button onClick={() => throwDart(25, 2)} disabled={disabled} style={modeBtnStyle(false)}>
+              Bull<br /><span style={{ fontWeight: 400, fontSize: 11 }}>50</span>
+            </button>
+            <button onClick={() => throwDart(25, 1)} disabled={disabled} style={modeBtnStyle(false)}>
+              Outer<br /><span style={{ fontWeight: 400, fontSize: 11 }}>25</span>
+            </button>
           </div>
 
           <div
@@ -176,12 +192,21 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
               </button>
             ))}
           </div>
+
+          <div className="btn-row" style={{ gap: 8 }}>
+            <button onClick={removeLastDart} disabled={disabled || darts.length === 0} style={bottomBtnStyle}>
+              ← Undo
+            </button>
+            <button onClick={() => throwDart(0, 0)} disabled={disabled} style={bottomBtnStyle}>
+              Miss
+            </button>
+          </div>
         </>
       )}
 
-      {darts.length > 0 && (
-        <button className="btn btn-outline" onClick={removeLastDart} disabled={disabled}>
-          Remove last dart
+      {readyToSubmit && darts.length > 0 && (
+        <button onClick={removeLastDart} disabled={disabled} style={bottomBtnStyle}>
+          ← Undo last dart
         </button>
       )}
 
