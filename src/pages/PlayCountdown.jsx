@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db.js'
 import { applyTurnScore, createLeg, legsToWin, checkoutSuggestion } from '../game/countdown.js'
@@ -19,6 +19,7 @@ export default function PlayCountdown() {
   const id = Number(matchId)
   const [toast, setToast] = useState(null)
   const [celebration, setCelebration] = useState(null)
+  const navigate = useNavigate()
   useWakeLock(true)
 
   const match = useLiveQuery(() => db.matches.get(id), [id])
@@ -136,6 +137,20 @@ export default function PlayCountdown() {
     })
   }
 
+  // Deletes this match entirely, legs and throws included. Nothing is
+  // salvaged — this is for "we're not finishing this one", not a pause.
+  // Just navigating Home instead leaves the match exactly as it is,
+  // resumable later from History, which covers an actual pause already.
+  async function cancelMatch() {
+    if (!window.confirm('Cancel this match? It will be deleted completely, including any legs already played.')) return
+    await db.transaction('rw', db.matches, db.legs, db.throws, async () => {
+      await db.throws.where('matchId').equals(id).delete()
+      await db.legs.where('matchId').equals(id).delete()
+      await db.matches.delete(id)
+    })
+    navigate('/')
+  }
+
   const matchFinished = match.status === 'finished'
   const need = legsToWin(match.format)
 
@@ -169,10 +184,12 @@ export default function PlayCountdown() {
 
   return (
     <div className="page">
-      <div className="topbar">
+      <div className="topbar" style={{ alignItems: 'center' }}>
         <Link className="back-link" to="/">←</Link>
-        <h1>{match.mode} · {match.format === 'single' ? 'Single leg' : match.format === 'bo3' ? `Bo3 (first to ${need})` : `Bo5 (first to ${need})`}</h1>
-        <Link className="btn btn-outline btn-sm" to="/players">+ Player</Link>
+        <span style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>
+          {match.mode} · {match.format === 'single' ? 'Single leg' : match.format === 'bo3' ? `Bo3 (first to ${need})` : `Bo5 (first to ${need})`}
+        </span>
+        <button className="btn btn-outline btn-sm" onClick={cancelMatch}>Cancel</button>
       </div>
 
       <Scoreboard
