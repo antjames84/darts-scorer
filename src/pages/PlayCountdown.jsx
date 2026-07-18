@@ -33,7 +33,6 @@ export default function PlayCountdown() {
     () => (activeLeg ? db.throws.where('legId').equals(activeLeg.id).sortBy('id') : []),
     [activeLeg?.id],
   )
-  const lastTurn = turns && turns.length ? turns[turns.length - 1] : null
 
   // Every turn across the whole match (all legs so far), used only for
   // the running 3-dart average shown in each player's bar.
@@ -201,10 +200,10 @@ export default function PlayCountdown() {
       <Scoreboard
         players={players}
         activePlayerId={currentPlayerId}
-        statFor={(pid) => {
+        statFor={(pid) => `${leg.scores[pid]}${legWins[pid] ? ` · ${legWins[pid]} leg${legWins[pid] > 1 ? 's' : ''}` : ''}`}
+        secondaryFor={(pid) => {
           const avg = threeDartAverage((matchTurns || []).filter((t) => t.playerId === pid))
-          const avgText = avg != null ? ` · avg ${avg.toFixed(1)}` : ''
-          return `${leg.scores[pid]}${legWins[pid] ? ` · ${legWins[pid]} leg${legWins[pid] > 1 ? 's' : ''}` : ''}${avgText}`
+          return avg != null ? `avg ${avg.toFixed(1)}` : null
         }}
       />
 
@@ -222,9 +221,9 @@ export default function PlayCountdown() {
         ) : null
       })()}
 
-      {lastTurn && (
+      {turns && turns.length > 0 && (
         <div className="label" style={{ textAlign: 'center', color: 'var(--muted)' }}>
-          Last visit: {lastTurn.scoredPoints}{lastTurn.scoredPoints !== lastTurn.attemptedScore ? ' (bust)' : ''}
+          Highest visit this leg: {Math.max(...turns.map((t) => t.scoredPoints))}
         </div>
       )}
 

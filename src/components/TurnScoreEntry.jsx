@@ -115,33 +115,34 @@ export default function TurnScoreEntry({ remaining, onSubmitTurn, disabled }) {
 
   return (
     <div className="stack" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}>
-      <div className="btn-row" style={{ justifyContent: 'center', gap: 8 }}>
-        {[0, 1, 2].map((i) => {
-          const filled = darts[i]
-          const isActive = i === darts.length && !readyToSubmit
-          return (
-            <div
-              key={i}
-              style={{
-                minWidth: 58,
-                textAlign: 'center',
-                padding: '7px 6px',
-                borderRadius: 8,
-                fontSize: 18,
-                fontWeight: 700,
-                background: filled !== undefined ? 'var(--card, #1c2530)' : 'transparent',
-                border: isActive ? '2px solid var(--accent, #e6533c)' : '1px dashed var(--muted)',
-                color: filled !== undefined ? 'inherit' : 'var(--muted)',
-              }}
-            >
-              {filled !== undefined ? filled : '·'}
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="label" style={{ textAlign: 'center' }}>
-        Total: {total}{bustCertain ? ' — bust' : ''}
+      <div className="btn-row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[0, 1, 2].map((i) => {
+            const filled = darts[i]
+            const isActive = i === darts.length && !readyToSubmit
+            return (
+              <div
+                key={i}
+                style={{
+                  minWidth: 54,
+                  textAlign: 'center',
+                  padding: '7px 6px',
+                  borderRadius: 8,
+                  fontSize: 18,
+                  fontWeight: 700,
+                  background: filled !== undefined ? 'var(--card, #1c2530)' : 'transparent',
+                  border: isActive ? '2px solid var(--accent, #e6533c)' : '1px dashed var(--muted)',
+                  color: filled !== undefined ? 'inherit' : 'var(--muted)',
+                }}
+              >
+                {filled !== undefined ? filled : '·'}
+              </div>
+            )
+          })}
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap' }}>
+          Total: {total}{bustCertain ? ' — bust' : ''}
+        </div>
       </div>
 
       {!readyToSubmit && (

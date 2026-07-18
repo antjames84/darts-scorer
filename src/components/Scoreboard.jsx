@@ -1,8 +1,9 @@
-export default function Scoreboard({ players, activePlayerId, statFor }) {
+export default function Scoreboard({ players, activePlayerId, statFor, secondaryFor }) {
   return (
     <div className="stack" style={{ gap: 6 }}>
       {players.map((p) => {
         const active = p.id === activePlayerId
+        const secondary = secondaryFor ? secondaryFor(p.id) : null
         return (
           <div
             key={p.id}
@@ -17,7 +18,14 @@ export default function Scoreboard({ players, activePlayerId, statFor }) {
             }}
           >
             <span style={{ fontSize: 16, fontWeight: 700, color: active ? '#fff' : 'inherit' }}>{p.name}</span>
-            <span style={{ fontSize: 16, fontWeight: 700, color: active ? '#fff' : 'inherit' }}>{statFor(p.id)}</span>
+            <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              {secondary && (
+                <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.85, color: active ? '#fff' : 'var(--muted)' }}>
+                  {secondary}
+                </span>
+              )}
+              <span style={{ fontSize: 16, fontWeight: 700, color: active ? '#fff' : 'inherit' }}>{statFor(p.id)}</span>
+            </span>
           </div>
         )
       })}
