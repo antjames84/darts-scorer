@@ -7,6 +7,7 @@ import {
   computeNumberStats,
   weakestNumbers,
   personalBestClock,
+  clockAttemptsForPlayer,
   computeStreaks,
 } from '../game/stats.js'
 import Scoreboard from '../components/Scoreboard.jsx'
@@ -54,6 +55,7 @@ export default function PlayClock() {
   const currentPlayerId = state.playerIds[state.currentPlayerIndex]
   const currentTarget = state.targets[currentPlayerId]
   const matchFinished = match.status === 'finished'
+  const committedClockMatchIds = new Set((allClockMatches || []).map((m) => m.id))
 
   function tallyFor(pid) {
     const rows = throwsForMatch.filter((t) => t.playerId === pid)
@@ -145,7 +147,6 @@ export default function PlayClock() {
 
   if (matchFinished) {
     const endedEarly = !state.playerIds.every((pid) => state.finished[pid])
-    const committedClockMatchIds = new Set((allClockMatches || []).map((m) => m.id))
 
     return (
       <div className="page">
@@ -281,6 +282,37 @@ export default function PlayClock() {
   const thisTurnThrows = turnBoxCount === 0 ? [] : currentPlayerThrows.slice(-turnBoxCount)
   const liveStreak = computeStreaks(currentPlayerThrows)
 
+  const allTimeThrowsForCurrentPlayer = allThrows
+    ? allThrows.filter(
+        (t) => t.mode === 'clock' && t.playerId === currentPlayerId && committedClockMatchIds.has(t.matchId),
+      )
+    : []
+  const bestEverStreak = computeStreaks(allTimeThrowsForCurrentPlayer).longestHit
+
+  // Ghost: the ordered hit/miss sequence from this player's personal-best
+  // (fewest darts) completed attempt, so live play can be compared
+  // against it dart-for-dart rather than only after the fact.
+  let ghostThrows = null
+  if (allClockMatches && allThrows) {
+    const attempts = clockAttemptsForPlayer(allClockMatches, allThrows, currentPlayerId)
+    if (attempts.length > 0) {
+      const best = attempts.reduce((a, b) => (b.darts < a.darts ? b : a))
+      if (best.matchId !== id) {
+        ghostThrows = allThrows
+          .filter((t) => t.matchId === best.matchId && t.playerId === currentPlayerId)
+          .sort((a, b) => a.id - b.id)
+      }
+    }
+  }
+
+  function ghostTargetAt(dartsSoFar) {
+    if (!ghostThrows) return null
+    const hits = ghostThrows.slice(0, dartsSoFar).filter((t) => t.hit).length
+    return hits >= 20 ? 25 : hits + 1
+  }
+
+  const ghostTarget = ghostThrows ? ghostTargetAt(currentPlayerThrows.length) : null
+
   return (
     <div className="page">
       <div className="topbar">
@@ -299,7 +331,7 @@ export default function PlayClock() {
       />
 
       <div className="score-display">
-        <div className="value" style={{ fontSize: 96, lineHeight: 1 }}>{targetLabel(currentTarget)}</div>
+        <div className="value" style={{ fontSize: 140, lineHeight: 1 }}>{targetLabel(currentTarget)}</div>
         <div className="label">{players.find((p) => p.id === currentPlayerId)?.name} aiming for {targetLabel(currentTarget)}</div>
         {currentTarget === 25 && match.bullMode === 'strict' && (
           <div className="label" style={{ color: 'var(--muted)' }}>Only the inner bull clears it this game</div>
@@ -312,9 +344,26 @@ export default function PlayClock() {
         {liveStreak.trailingHit >= 2 && (
           <div style={{ marginTop: 6, fontSize: 18, fontWeight: 700, color: 'var(--accent, #e6533c)' }}>
             🔥 {liveStreak.trailingHit} in a row
+            {bestEverStreak > 0 && (
+              <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--muted)' }}>
+                {' '}
+                {liveStreak.trailingHit > bestEverStreak ? '— new best!' : `(best: ${bestEverStreak})`}
+              </span>
+            )}
           </div>
         )}
       </div>
+
+      {ghostThrows && (
+        <div className="card" style={{ textAlign: 'center', padding: 10 }}>
+          <span style={{ fontSize: 13, color: 'var(--muted)' }}>Your best game, at this point: </span>
+          <strong>{targetLabel(ghostTarget)}</strong>
+          {' — '}
+          {currentTarget > ghostTarget && <span style={{ color: '#2e7d32', fontWeight: 700 }}>ahead of your best</span>}
+          {currentTarget === ghostTarget && <span style={{ color: 'var(--muted)' }}>level with your best</span>}
+          {currentTarget < ghostTarget && <span style={{ color: 'var(--muted)' }}>behind your best pace</span>}
+        </div>
+      )}
 
       <div className="btn-row" style={{ justifyContent: 'center', gap: 8 }}>
         {[0, 1, 2].map((i) => {

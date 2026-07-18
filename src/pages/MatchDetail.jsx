@@ -1,6 +1,8 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db.js'
+import { computeNumberStats, weakestNumbers, computeStreaks } from '../game/stats.js'
+import { targetLabel } from '../game/clock.js'
 
 export default function MatchDetail() {
   const { matchId } = useParams()
@@ -9,6 +11,7 @@ export default function MatchDetail() {
 
   const match = useLiveQuery(() => db.matches.get(id), [id])
   const legs = useLiveQuery(() => (match?.mode !== 'clock' ? db.legs.where('matchId').equals(id).sortBy('legNumber') : []), [id, match])
+  const throwsForMatch = useLiveQuery(() => db.throws.where('matchId').equals(id).sortBy('id'), [id])
   const players = useLiveQuery(() => db.players.toArray(), [])
 
   async function deleteMatch() {
@@ -51,17 +54,44 @@ export default function MatchDetail() {
       </div>
 
       {match.mode === 'clock' ? (
-        <div className="card">
-          <strong>Final standings</strong>
-          <div className="stack" style={{ marginTop: 10 }}>
-            {match.matchState.playerIds.map((pid) => (
-              <div className="stat-row" key={pid}>
-                <span style={{ flex: 1 }}>{nameOf(pid)}</span>
-                <span className="pct">{match.matchState.finished[pid] ? 'Finished' : `On ${match.matchState.targets[pid]}`}</span>
-              </div>
-            ))}
+        <>
+          <div className="card">
+            <div>Saved to stats: <strong>{match.committed ? 'Yes' : 'No — this was discarded or never confirmed'}</strong></div>
           </div>
-        </div>
+
+          {match.matchState.playerIds.map((pid) => {
+            const playerThrows = (throwsForMatch || []).filter((t) => t.playerId === pid)
+            const darts = playerThrows.length
+            const hits = playerThrows.filter((t) => t.hit).length
+            const streaks = computeStreaks(playerThrows)
+            const stats = computeNumberStats(playerThrows)
+            const weakest = weakestNumbers(stats, 1, 3)
+
+            return (
+              <div className="card stack" key={pid}>
+                <strong>
+                  {nameOf(pid)} — {match.matchState.finished[pid] ? 'Finished' : `On ${targetLabel(match.matchState.targets[pid])}`}
+                </strong>
+                {darts > 0 && (
+                  <span style={{ color: 'var(--muted)', fontSize: 13 }}>
+                    {hits}/{darts} ({Math.round((hits / darts) * 100)}%) · longest streak {streaks.longestHit}
+                  </span>
+                )}
+                {weakest.length > 0 && (
+                  <div className="stack" style={{ marginTop: 6 }}>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>Weakest this match:</span>
+                    {weakest.map((s) => (
+                      <div className="stat-row" key={s.target}>
+                        <span className="num">{targetLabel(s.target)}</span>
+                        <span className="pct">{s.hits}/{s.attempts} ({Math.round(s.rate * 100)}%)</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </>
       ) : (
         <div className="stack">
           {(legs || []).map((leg) => (
