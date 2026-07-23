@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db.js'
@@ -8,7 +8,18 @@ export default function NewClock() {
   const players = useLiveQuery(() => db.players.orderBy('name').toArray(), [])
   const [selected, setSelected] = useState([])
   const [bullMode, setBullMode] = useState('any')
+  const [hasDefaulted, setHasDefaulted] = useState(false)
   const navigate = useNavigate()
+
+  // Solo is the common case here, so default to the first player rather
+  // than making every session start with an empty, unusable Start button.
+  // Only runs once — after that it's entirely up to what's tapped.
+  useEffect(() => {
+    if (!hasDefaulted && players && players.length > 0) {
+      setSelected([players[0].id])
+      setHasDefaulted(true)
+    }
+  }, [players, hasDefaulted])
 
   function toggle(id) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))

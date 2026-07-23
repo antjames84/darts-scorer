@@ -57,6 +57,19 @@ export default function PlayClock() {
   const matchFinished = match.status === 'finished'
   const committedClockMatchIds = new Set((allClockMatches || []).map((m) => m.id))
 
+  // Deletes this match outright, no summary screen, nothing saved. For
+  // when you're too far from the board to carry on and just want it gone,
+  // as opposed to End Session, which still lets you review and decide.
+  async function abandonMatch() {
+    if (matchFinished) return
+    if (!window.confirm('Abandon this game? It\'ll be deleted completely, nothing added to history or stats.')) return
+    await db.transaction('rw', db.matches, db.throws, async () => {
+      await db.throws.where('matchId').equals(id).delete()
+      await db.matches.delete(id)
+    })
+    navigate('/')
+  }
+
   function tallyFor(pid) {
     const rows = throwsForMatch.filter((t) => t.playerId === pid)
     const hits = rows.filter((t) => t.hit).length
@@ -293,6 +306,7 @@ export default function PlayClock() {
   // (fewest darts) completed attempt, so live play can be compared
   // against it dart-for-dart rather than only after the fact.
   let ghostThrows = null
+  let ghostBestDarts = null
   if (allClockMatches && allThrows) {
     const attempts = clockAttemptsForPlayer(allClockMatches, allThrows, currentPlayerId)
     if (attempts.length > 0) {
@@ -301,6 +315,7 @@ export default function PlayClock() {
         ghostThrows = allThrows
           .filter((t) => t.matchId === best.matchId && t.playerId === currentPlayerId)
           .sort((a, b) => a.id - b.id)
+        ghostBestDarts = best.darts
       }
     }
   }
@@ -356,12 +371,17 @@ export default function PlayClock() {
 
       {ghostThrows && (
         <div className="card" style={{ textAlign: 'center', padding: 10 }}>
-          <span style={{ fontSize: 13, color: 'var(--muted)' }}>Your best game, at this point: </span>
-          <strong>{targetLabel(ghostTarget)}</strong>
-          {' — '}
-          {currentTarget > ghostTarget && <span style={{ color: '#2e7d32', fontWeight: 700 }}>ahead of your best</span>}
-          {currentTarget === ghostTarget && <span style={{ color: 'var(--muted)' }}>level with your best</span>}
-          {currentTarget < ghostTarget && <span style={{ color: 'var(--muted)' }}>behind your best pace</span>}
+          <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+            Personal best: <strong style={{ color: 'inherit' }}>{ghostBestDarts} darts</strong>
+          </div>
+          <div style={{ marginTop: 4 }}>
+            <span style={{ fontSize: 13, color: 'var(--muted)' }}>At this point in that game: </span>
+            <strong>{targetLabel(ghostTarget)}</strong>
+            {' — '}
+            {currentTarget > ghostTarget && <span style={{ color: '#2e7d32', fontWeight: 700 }}>ahead of your best</span>}
+            {currentTarget === ghostTarget && <span style={{ color: 'var(--muted)' }}>level with your best</span>}
+            {currentTarget < ghostTarget && <span style={{ color: 'var(--muted)' }}>behind your best pace</span>}
+          </div>
         </div>
       )}
 
@@ -430,6 +450,7 @@ export default function PlayClock() {
       <div className="btn-row" style={{ gap: 8, marginTop: 4 }}>
         <button className="btn btn-outline btn-sm" onClick={undo}>Undo last dart</button>
         <button className="btn btn-outline btn-sm" onClick={endSessionEarly}>End session</button>
+        <button className="btn btn-outline btn-sm" onClick={abandonMatch}>Abandon</button>
       </div>
 
       {celebration && <Celebration message={celebration} onDone={() => setCelebration(null)} />}
