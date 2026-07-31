@@ -99,6 +99,23 @@ export default function PlayClock() {
     if (matchFinished) return
     const result = applyClockThrow(state, outcome)
 
+    // Speak and buzz immediately, synchronously, off the tap itself —
+    // iOS Safari requires speechSynthesis.speak() to fire within the same
+    // gesture as the tap that triggered it. Anything awaited beforehand
+    // (like the database write below) can silently break that and the
+    // announcement just won't play, no error, no warning.
+    if (result.hit) buzz(result.justFinished ? [40, 60, 40, 60, 120] : 25)
+
+    if (voiceOn && result.hit && !result.justFinished && ghostThrows) {
+      const newDartsCount = currentPlayerThrows.length + 1
+      const newTarget = result.state.targets[result.playerId]
+      const ghostTargetNow = ghostTargetAt(newDartsCount)
+      const diff = stepFor(newTarget) - stepFor(ghostTargetNow)
+      if (diff > 0) speak(`${diff} ahead of your best`)
+      else if (diff < 0) speak(`${Math.abs(diff)} behind your best`)
+      else speak('level with your best')
+    }
+
     await db.transaction('rw', db.matches, db.throws, async () => {
       await db.throws.add({
         matchId: id,
@@ -122,23 +139,8 @@ export default function PlayClock() {
       })
     })
 
-    if (result.hit) buzz(result.justFinished ? [40, 60, 40, 60, 120] : 25)
-
     if (result.justFinished) {
       setCelebration(`${players.find((p) => p.id === result.playerId)?.name} finished!`)
-    }
-
-    // Speaks the ghost comparison, but only on a hit — a miss doesn't
-    // change your position, so there'd be nothing new to say — and not
-    // on the finishing dart, which the celebration already covers.
-    if (voiceOn && result.hit && !result.justFinished && ghostThrows) {
-      const newDartsCount = currentPlayerThrows.length + 1
-      const newTarget = result.state.targets[result.playerId]
-      const ghostTargetNow = ghostTargetAt(newDartsCount)
-      const diff = stepFor(newTarget) - stepFor(ghostTargetNow)
-      if (diff > 0) speak(`${diff} ahead of your best`)
-      else if (diff < 0) speak(`${Math.abs(diff)} behind your best`)
-      else speak('level with your best')
     }
   }
 

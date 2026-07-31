@@ -64,6 +64,27 @@ export default function PlayCountdown() {
     if (!activeLeg || match.status === 'finished') return
     const result = applyTurnScore(activeLeg.legState, score, { dartsUsed, checkoutDouble })
 
+    // Buzz and speak immediately, synchronously, off the tap itself —
+    // iOS Safari requires speechSynthesis.speak() to fire within the same
+    // gesture as the tap that triggered it. Anything awaited beforehand
+    // (like the database write below) can silently break that and the
+    // announcement just won't play, no error, no warning.
+    if (result.event === 'bust') {
+      buzz(15)
+    } else if (result.event === 'checkout') {
+      buzz([40, 60, 40, 60, 120])
+    } else {
+      buzz(15)
+    }
+
+    if (voiceOn && result.event !== 'checkout') {
+      const nextPlayerId = result.leg.playerIds[result.leg.currentPlayerIndex]
+      const nextPlayerName = players.find((p) => p.id === nextPlayerId)?.name
+      const nextRemaining = result.leg.scores[nextPlayerId]
+      const phrase = players.length > 1 ? `${nextPlayerName} requires ${nextRemaining}` : `${nextRemaining} remaining`
+      speak(phrase)
+    }
+
     await db.transaction('rw', db.legs, db.throws, db.matches, async () => {
       await db.throws.add({
         matchId: id,
@@ -119,23 +140,9 @@ export default function PlayCountdown() {
     })
 
     if (result.event === 'bust') {
-      buzz(15)
       setToast({ text: 'Bust! Visit discarded.', kind: 'bust' })
     } else if (result.event === 'checkout') {
-      buzz([40, 60, 40, 60, 120])
       setCelebration('Checkout! Leg won.')
-    } else {
-      buzz(15)
-    }
-
-    // Speaks the score whoever's up next needs — skipped on a checkout
-    // since the leg's over and there's no "next go" to announce yet.
-    if (voiceOn && result.event !== 'checkout') {
-      const nextPlayerId = result.leg.playerIds[result.leg.currentPlayerIndex]
-      const nextPlayerName = players.find((p) => p.id === nextPlayerId)?.name
-      const nextRemaining = result.leg.scores[nextPlayerId]
-      const phrase = players.length > 1 ? `${nextPlayerName} requires ${nextRemaining}` : `${nextRemaining} remaining`
-      speak(phrase)
     }
   }
 
