@@ -15,11 +15,20 @@ function buzz(pattern) {
   if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern)
 }
 
+function speak(text) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
+  window.speechSynthesis.cancel() // don't queue up behind anything still talking
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.rate = 1
+  window.speechSynthesis.speak(utterance)
+}
+
 export default function PlayCountdown() {
   const { matchId } = useParams()
   const id = Number(matchId)
   const [toast, setToast] = useState(null)
   const [celebration, setCelebration] = useState(null)
+  const [voiceOn, setVoiceOn] = useState(true)
   const navigate = useNavigate()
   useWakeLock(true)
 
@@ -118,6 +127,16 @@ export default function PlayCountdown() {
     } else {
       buzz(15)
     }
+
+    // Speaks the score whoever's up next needs — skipped on a checkout
+    // since the leg's over and there's no "next go" to announce yet.
+    if (voiceOn && result.event !== 'checkout') {
+      const nextPlayerId = result.leg.playerIds[result.leg.currentPlayerIndex]
+      const nextPlayerName = players.find((p) => p.id === nextPlayerId)?.name
+      const nextRemaining = result.leg.scores[nextPlayerId]
+      const phrase = players.length > 1 ? `${nextPlayerName} requires ${nextRemaining}` : `${nextRemaining} remaining`
+      speak(phrase)
+    }
   }
 
   async function undo() {
@@ -194,6 +213,14 @@ export default function PlayCountdown() {
           {match.mode} · {match.format === 'single' ? 'Single leg' : match.format === 'bo3' ? `Bo3 (first to ${need})` : `Bo5 (first to ${need})`}
           {match.format !== 'single' ? ` · Leg ${activeLeg.legNumber}` : ''}
         </span>
+        <button
+          className="btn btn-outline btn-sm"
+          onClick={() => setVoiceOn((v) => !v)}
+          style={{ padding: '4px 10px' }}
+          aria-label={voiceOn ? 'Mute score announcements' : 'Unmute score announcements'}
+        >
+          {voiceOn ? '🔊' : '🔇'}
+        </button>
         <button className="btn btn-outline btn-sm" onClick={cancelMatch}>Cancel</button>
       </div>
 

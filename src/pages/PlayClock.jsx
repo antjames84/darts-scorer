@@ -20,10 +20,27 @@ function buzz(pattern) {
   if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern)
 }
 
+function speak(text) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
+  window.speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.rate = 1
+  window.speechSynthesis.speak(utterance)
+}
+
+// Position on the 1→20→bull ladder as a plain step count (0-20), so
+// "ahead/behind" can be a clean number of numbers rather than comparing
+// raw target values, where the bull (25) would otherwise look like a
+// jump of 5 instead of the single step it actually is.
+function stepFor(target) {
+  return target <= 20 ? target - 1 : 20
+}
+
 export default function PlayClock() {
   const { matchId } = useParams()
   const id = Number(matchId)
   const [celebration, setCelebration] = useState(null)
+  const [voiceOn, setVoiceOn] = useState(true)
   const navigate = useNavigate()
   useWakeLock(true)
 
@@ -109,6 +126,19 @@ export default function PlayClock() {
 
     if (result.justFinished) {
       setCelebration(`${players.find((p) => p.id === result.playerId)?.name} finished!`)
+    }
+
+    // Speaks the ghost comparison, but only on a hit — a miss doesn't
+    // change your position, so there'd be nothing new to say — and not
+    // on the finishing dart, which the celebration already covers.
+    if (voiceOn && result.hit && !result.justFinished && ghostThrows) {
+      const newDartsCount = currentPlayerThrows.length + 1
+      const newTarget = result.state.targets[result.playerId]
+      const ghostTargetNow = ghostTargetAt(newDartsCount)
+      const diff = stepFor(newTarget) - stepFor(ghostTargetNow)
+      if (diff > 0) speak(`${diff} ahead of your best`)
+      else if (diff < 0) speak(`${Math.abs(diff)} behind your best`)
+      else speak('level with your best')
     }
   }
 
@@ -330,9 +360,17 @@ export default function PlayClock() {
 
   return (
     <div className="page">
-      <div className="topbar">
+      <div className="topbar" style={{ alignItems: 'center' }}>
         <Link className="back-link" to="/">←</Link>
-        <h1>Round the Clock</h1>
+        <h1 style={{ flex: 1 }}>Round the Clock</h1>
+        <button
+          className="btn btn-outline btn-sm"
+          onClick={() => setVoiceOn((v) => !v)}
+          style={{ padding: '4px 10px' }}
+          aria-label={voiceOn ? 'Mute ghost announcements' : 'Unmute ghost announcements'}
+        >
+          {voiceOn ? '🔊' : '🔇'}
+        </button>
       </div>
 
       <Scoreboard
